@@ -99,13 +99,39 @@ export const formatCurrency = (amount: number, currency: string): string => {
 
 // Format date
 export const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  try {
+    if (!dateString) {
+      console.log('Missing date string:', dateString);
+      return 'N/A';
+    }
+
+    // If the date string is in MySQL format (YYYY-MM-DD HH:mm:ss), convert it to ISO format
+    if (dateString.includes(' ')) {
+      dateString = dateString.replace(' ', 'T') + 'Z';
+    }
+
+    const date = new Date(dateString);
+    
+    if (isNaN(date.getTime())) {
+      console.log('Invalid date string:', dateString);
+      return 'N/A';
+    }
+    
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    };
+    
+    return new Intl.DateTimeFormat('en-US', options).format(date);
+  } catch (error) {
+    console.error('Error formatting date:', error, 'for string:', dateString);
+    return 'N/A';
+  }
 };
 
 // Get status color

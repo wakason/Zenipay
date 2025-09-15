@@ -3,6 +3,7 @@ import pool from '../config/db.js';
 import { validatePaymentInput } from '../utils/auth.js';
 import { authenticateToken, requireCustomer, requireEmployee, auditLog } from '../middleware/auth.js';
 import { paymentRateLimit } from '../middleware/security.js';
+import { verifyBeneficiaryAccount, validateDataProvider } from '../services/swiftPreValidationService.js'; // Import the new service
 
 const router = express.Router();
 
@@ -76,7 +77,16 @@ router.get('/my-transactions', requireCustomer, async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
     
     let query = `
-      SELECT id, amount, currency, payee_account, swift_code, payee_name, status, created_at, updated_at
+      SELECT 
+        id,
+        amount,
+        currency,
+        payee_account AS payeeAccount,
+        swift_code AS swiftCode,
+        payee_name AS payeeName,
+        status,
+        DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
+        DATE_FORMAT(updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt
       FROM transactions 
       WHERE customer_id = ?
     `;
@@ -129,8 +139,18 @@ router.get('/pending', requireEmployee, async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
     
     const [transactions] = await pool.execute(`
-      SELECT t.id, t.amount, t.currency, t.payee_account, t.swift_code, t.payee_name, 
-             t.status, t.created_at, u.full_name as customer_name, u.account_number as customer_account
+      SELECT 
+        t.id,
+        t.amount,
+        t.currency,
+        t.payee_account AS payeeAccount,
+        t.swift_code AS swiftCode,
+        t.payee_name AS payeeName,
+        t.status,
+        DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
+        DATE_FORMAT(t.updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt,
+        u.full_name AS customerName,
+        u.account_number AS customerAccount
       FROM transactions t
       JOIN users u ON t.customer_id = u.id
       WHERE t.status = 'pending'
@@ -276,13 +296,58 @@ router.post('/submit-to-swift/:transactionId', requireEmployee, async (req, res)
   }
 });
 
+// Payment Pre-validation (Employee only)
+router.post('/pre-validate-account', requireEmployee, async (req, res) => {
+  try {
+    const { accountDetails, subjectDn } = req.body; // subjectDn should be securely managed, potentially derived from employee's identity
+
+    if (!accountDetails || !subjectDn) {
+      return res.status(400).json({ error: 'Missing accountDetails or subjectDn' });
+    }
+
+    const validationResult = await verifyBeneficiaryAccount(accountDetails, subjectDn);
+    res.json(validationResult);
+  } catch (error) {
+    console.error('Payment pre-validation error:', error.response ? error.response.data : error.message);
+    res.status(500).json({ error: 'Payment pre-validation failed' });
+  }
+});
+
+// Validate Data Provider (Employee only)
+router.post('/validate-data-provider', requireEmployee, async (req, res) => {
+  try {
+    const { partyAgentDetails, subjectDn } = req.body; // subjectDn should be securely managed
+
+    if (!partyAgentDetails || !subjectDn) {
+      return res.status(400).json({ error: 'Missing partyAgentDetails or subjectDn' });
+    }
+
+    const validationResult = await validateDataProvider(partyAgentDetails, subjectDn);
+    res.json(validationResult);
+  } catch (error) {
+    console.error('Data provider validation error:', error.response ? error.response.data : error.message);
+    res.status(500).json({ error: 'Data provider validation failed' });
+  }
+});
+
 // Get transaction details
 router.get('/:transactionId', async (req, res) => {
   try {
     const { transactionId } = req.params;
     
     let query = `
-      SELECT t.*, u.full_name as customer_name, u.account_number as customer_account
+      SELECT 
+        t.id,
+        t.amount,
+        t.currency,
+        t.payee_account AS payeeAccount,
+        t.swift_code AS swiftCode,
+        t.payee_name AS payeeName,
+        t.status,
+        DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
+        DATE_FORMAT(t.updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt,
+        u.full_name AS customerName,
+        u.account_number AS customerAccount
       FROM transactions t
       JOIN users u ON t.customer_id = u.id
       WHERE t.id = ?
@@ -322,9 +387,15 @@ router.get('/', requireEmployee, async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
     
     let query = `
-      SELECT t.id, t.amount, t.currency, t.payee_account, t.swift_code, t.payee_name, 
-             t.status, t.created_at, t.updated_at, u.full_name as customer_name, 
-             u.account_number as customer_account
+      SELECT t.id, t.amount, t.currency,
+             t.payee_account AS payeeAccount,
+             t.swift_code AS swiftCode,
+             t.payee_name AS payeeName,
+             t.status,
+             DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
+             DATE_FORMAT(t.updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt,
+             u.full_name AS customerName, 
+             u.account_number AS customerAccount
       FROM transactions t
       JOIN users u ON t.customer_id = u.id
       WHERE 1=1

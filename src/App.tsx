@@ -28,6 +28,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    console.error('Unauthorized access: user role', user.role, 'is not allowed. Expected roles:', allowedRoles);
     return <Navigate to="/unauthorized" replace />;
   }
 
@@ -56,8 +57,6 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 // Main App Routes
 const AppRoutes: React.FC = () => {
-  const { user } = useAuth();
-
   return (
     <Routes>
       {/* Public Routes */}

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
 import { Transaction } from '../types';
-import { formatCurrency, formatDate, getStatusColor, getStatusText } from '../utils/validation';
+import { formatCurrency, formatDate } from '../utils/validation';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Shield, Clock, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
 
@@ -12,6 +12,7 @@ const EmployeeDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [validationResults, setValidationResults] = useState<{[key: number]: { accountValid?: boolean, swiftCodeValid?: boolean, message?: string }}>({});
   const [stats, setStats] = useState({
     totalPending: 0,
     totalVerified: 0,
@@ -28,6 +29,7 @@ const EmployeeDashboard: React.FC = () => {
       setIsLoading(true);
       const response = await apiService.getPendingTransactions(1, 5);
       setPendingTransactions(response.transactions);
+      setValidationResults({}); // Clear previous validation results on data refresh
       
       // Calculate stats
       const allTransactionsResponse = await apiService.getAllTransactions(1, 1000);
@@ -52,19 +54,120 @@ const EmployeeDashboard: React.FC = () => {
   };
 
   const handleVerifyTransaction = async (transactionId: number, verified: boolean) => {
+    if (!verified) {
+      // If rejecting, directly call the backend API
     try {
       await apiService.verifyTransaction(transactionId, { 
-        verified, 
-        notes: verified ? 'Transaction verified' : 'Transaction rejected' 
+          verified: false,
+          notes: 'Transaction rejected by employee' 
       });
-      loadDashboardData(); // Refresh data
+        loadDashboardData();
     } catch (error) {
-      console.error('Failed to verify transaction:', error);
+        console.error('Failed to reject transaction:', error);
+      }
+      return;
+    }
+
+    // Proceed with pre-validation if verifying
+    const transactionToValidate = pendingTransactions.find(t => t.id === transactionId);
+    if (!transactionToValidate) {
+      console.error('Transaction not found for validation.');
+      return;
+    }
+
+    // For a real application, subjectDn should be retrieved securely from the authenticated employee's context.
+    // For this example, we'll use a placeholder or derive it if available in the user object.
+    const subjectDn = user?.email; // Must be dynamically derived from authenticated employee's certificate subject DN
+
+    setValidationResults(prev => ({ ...prev, [transactionId]: { message: 'Validating...' } }));
+
+    try {
+      // Step 1: Verify Beneficiary Account
+      const accountDetails = {
+        // Structure these based on Swift API documentation for /accounts/verification
+        // Example fields, adjust as per actual API requirements:
+        party_account: {
+          identification: {
+            iban: transactionToValidate.payeeAccount, // Assuming payeeAccount can be an IBAN
+          },
+        },
+        party_agent: {
+          bicfi: transactionToValidate.swiftCode, // Assuming swiftCode is BICFI
+        },
+        requestor: {
+          any_bic: user?.bic, // Must be dynamically derived from authenticated employee's BIC
+        },
+        context: 'CRDT', // Credit Transfer context
+        proprietary_service_parameters: {
+          code: 'SCHM',
+          qualifier: 'PVAH', // Example qualifier, adjust as needed
+        },
+      };
+
+      if (!subjectDn || !user?.bic) {
+        setValidationResults(prev => ({
+          ...prev,
+          [transactionId]: { message: 'Employee email or BIC not available for pre-validation.' }
+        }));
+        return;
+      }
+
+      const accountValidationResponse = await apiService.preValidateAccount(accountDetails, subjectDn);
+      console.log('Account validation response:', accountValidationResponse);
+
+      const isAccountValid = accountValidationResponse?.account_match === 'MTCH'; // Or other success indicator
+
+      // Step 2: Validate Data Provider (optional, based on requirement)
+      const partyAgentDetails = {
+        // Structure based on Swift API documentation for /data-providers/check
+        party_agent: {
+          bicfi: transactionToValidate.swiftCode,
+        },
+      };
+
+      const dataProviderValidationResponse = await apiService.validateDataProvider(partyAgentDetails, subjectDn);
+      console.log('Data provider validation response:', dataProviderValidationResponse);
+      const isSwiftCodeValid = dataProviderValidationResponse?.party_agent_match === 'MTCH'; // Or other success indicator
+
+      if (isAccountValid && isSwiftCodeValid) {
+        setValidationResults(prev => ({
+          ...prev,
+          [transactionId]: { accountValid: true, swiftCodeValid: true, message: 'Account and SWIFT code validated successfully.' }
+        }));
+        // If pre-validation is successful, then proceed with internal verification
+        await apiService.verifyTransaction(transactionId, { 
+          verified: true,
+          notes: 'Transaction verified after Swift pre-validation' 
+        });
+        loadDashboardData();
+      } else {
+        let errorMessage = 'Validation failed: ';
+        if (!isAccountValid) errorMessage += 'Beneficiary account invalid. ';
+        if (!isSwiftCodeValid) errorMessage += 'SWIFT code invalid.';
+        setValidationResults(prev => ({
+          ...prev,
+          [transactionId]: { accountValid: isAccountValid, swiftCodeValid: isSwiftCodeValid, message: errorMessage }
+        }));
+      }
+
+    } catch (error: any) {
+      console.error('Error during Swift pre-validation:', error);
+      setValidationResults(prev => ({
+        ...prev,
+        [transactionId]: { message: `Pre-validation failed: ${error.response?.data?.error || error.message}` }
+      }));
     }
   };
 
   const handleSubmitToSwift = async (transactionId: number) => {
     try {
+      // Before submitting to SWIFT, ensure it was pre-validated successfully
+      const result = validationResults[transactionId];
+      if (!result?.accountValid || !result?.swiftCodeValid) {
+        alert('Please complete successful pre-validation before submitting to SWIFT.');
+        return;
+      }
+
       await apiService.submitToSwift(transactionId);
       loadDashboardData(); // Refresh data
     } catch (error) {
@@ -232,6 +335,11 @@ const EmployeeDashboard: React.FC = () => {
                         <div className="text-xs text-gray-400">
                           {transaction.swiftCode}
                         </div>
+                        {validationResults[transaction.id] && (
+                          <div className={`text-xs mt-1 ${validationResults[transaction.id]?.accountValid && validationResults[transaction.id]?.swiftCodeValid ? 'text-green-600' : 'text-red-600'}`}>
+                            {validationResults[transaction.id]?.message}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -245,9 +353,10 @@ const EmployeeDashboard: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       <button
                         onClick={() => handleVerifyTransaction(transaction.id, true)}
+                        disabled={validationResults[transaction.id]?.message === 'Validating...'}
                         className="text-green-600 hover:text-green-900 bg-green-100 hover:bg-green-200 px-2 py-1 rounded text-xs"
                       >
-                        Verify
+                        {validationResults[transaction.id]?.message === 'Validating...' ? 'Validating...' : 'Pre-Validate & Verify'}
                       </button>
                       <button
                         onClick={() => handleVerifyTransaction(transaction.id, false)}
@@ -255,6 +364,15 @@ const EmployeeDashboard: React.FC = () => {
                       >
                         Reject
                       </button>
+                      {transaction.status === 'verified' && (
+                        <button
+                          onClick={() => handleSubmitToSwift(transaction.id)}
+                          disabled={!validationResults[transaction.id]?.accountValid || !validationResults[transaction.id]?.swiftCodeValid}
+                          className="text-blue-600 hover:text-blue-900 bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded text-xs ml-2"
+                        >
+                          Submit to SWIFT
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

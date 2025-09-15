@@ -15,8 +15,9 @@ class ApiService {
   private token: string | null = null;
 
   constructor() {
+    const API_BASE_URL = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_API_URL}/api` : 'http://localhost:5000/api';
     this.api = axios.create({
-      baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+      baseURL: API_BASE_URL,
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
@@ -53,6 +54,24 @@ class ApiService {
         return Promise.reject(error);
       }
     );
+
+    // Error logging and response debugging
+    this.api.interceptors.response.use(
+      response => {
+        if (response.config.url?.includes('/payments/my-transactions')) {
+          console.log('API Response:', {
+            url: response.config.url,
+            data: response.data,
+            status: response.status
+          });
+        }
+        return response;
+      },
+      error => {
+        console.error('API Error:', error.response ? error.response.data : error.message);
+        return Promise.reject(error);
+      }
+    );
   }
 
   setAuthToken(token: string) {
@@ -79,7 +98,7 @@ class ApiService {
 
   // Authentication endpoints
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await this.api.post('/api/auth/login', credentials);
+    const response: AxiosResponse<AuthResponse> = await this.api.post('/auth/login', credentials);
     if (response.data.token) {
       this.setAuthToken(response.data.token);
     }
@@ -87,7 +106,7 @@ class ApiService {
   }
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await this.api.post('/api/auth/register', userData);
+    const response: AxiosResponse<AuthResponse> = await this.api.post('/auth/register', userData);
     if (response.data.token) {
       this.setAuthToken(response.data.token);
     }
@@ -95,12 +114,12 @@ class ApiService {
   }
 
   async getProfile(): Promise<{ user: User }> {
-    const response = await this.api.get('/api/auth/profile');
+    const response = await this.api.get('/auth/profile');
     return response.data;
   }
 
   async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
-    const response = await this.api.put('/api/auth/change-password', {
+    const response = await this.api.put('/auth/change-password', {
       currentPassword,
       newPassword
     });
@@ -108,14 +127,26 @@ class ApiService {
   }
 
   async logoutUser(): Promise<{ message: string }> {
-    const response = await this.api.post('/api/auth/logout');
+    const response = await this.api.post('/auth/logout');
     this.logout();
     return response.data;
   }
 
   // Payment endpoints
   async createPayment(paymentData: CreatePaymentRequest): Promise<{ message: string; transaction: Transaction }> {
-    const response = await this.api.post('/api/payments/create', paymentData);
+    const response = await this.api.post('/payments/create', paymentData);
+    return response.data;
+  }
+
+  // New: Pre-validate a beneficiary account with Swift API via backend
+  async preValidateAccount(accountDetails: any, subjectDn: string): Promise<any> {
+    const response = await this.api.post('/payments/pre-validate-account', { accountDetails, subjectDn });
+    return response.data;
+  }
+
+  // New: Validate a data provider with Swift API via backend
+  async validateDataProvider(partyAgentDetails: any, subjectDn: string): Promise<any> {
+    const response = await this.api.post('/payments/validate-data-provider', { partyAgentDetails, subjectDn });
     return response.data;
   }
 
@@ -125,7 +156,7 @@ class ApiService {
       limit: limit.toString(),
       ...(status && { status })
     });
-    const response = await this.api.get(`/api/payments/my-transactions?${params}`);
+    const response = await this.api.get(`/payments/my-transactions?${params}`);
     return response.data;
   }
 
@@ -134,7 +165,7 @@ class ApiService {
       page: page.toString(),
       limit: limit.toString()
     });
-    const response = await this.api.get(`/api/payments/pending?${params}`);
+    const response = await this.api.get(`/payments/pending?${params}`);
     return response.data;
   }
 
@@ -145,22 +176,22 @@ class ApiService {
       ...(status && { status }),
       ...(customerId && { customerId: customerId.toString() })
     });
-    const response = await this.api.get(`/api/payments?${params}`);
+    const response = await this.api.get(`/payments?${params}`);
     return response.data;
   }
 
   async getTransaction(transactionId: number): Promise<{ transaction: Transaction }> {
-    const response = await this.api.get(`/api/payments/${transactionId}`);
+    const response = await this.api.get(`/payments/${transactionId}`);
     return response.data;
   }
 
   async verifyTransaction(transactionId: number, verificationData: VerifyTransactionRequest): Promise<{ message: string; transaction: Transaction }> {
-    const response = await this.api.put(`/api/payments/verify/${transactionId}`, verificationData);
+    const response = await this.api.put(`/payments/verify/${transactionId}`, verificationData);
     return response.data;
   }
 
   async submitToSwift(transactionId: number): Promise<{ message: string; swiftSubmissionId: string; transaction: Transaction }> {
-    const response = await this.api.post(`/api/payments/submit-to-swift/${transactionId}`);
+    const response = await this.api.post(`/payments/submit-to-swift/${transactionId}`);
     return response.data;
   }
 

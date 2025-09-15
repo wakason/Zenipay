@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { LoginRequest } from '../types';
 import { validateAccountNumber } from '../utils/validation';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Shield, Eye, EyeOff, Building2, User, Lock, ArrowRight } from 'lucide-react';
+import { Shield, Eye, EyeOff, Building2, Lock, ArrowRight } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState<LoginRequest>({
@@ -20,7 +20,7 @@ const LoginPage: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value.toUpperCase()
+      [name]: name === 'accountNumber' ? value.toUpperCase() : value
     }));
     
     // Clear error when user starts typing
@@ -141,6 +141,9 @@ const LoginPage: React.FC = () => {
                     errors.password ? 'border-red-500 focus:ring-red-500' : ''
                   }`}
                   placeholder="Enter your password"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  style={{ textTransform: 'none' }}
                 />
                 <button
                   type="button"
@@ -195,24 +198,6 @@ const LoginPage: React.FC = () => {
               </p>
             </div>
           </form>
-        </div>
-
-        {/* Demo Accounts */}
-        <div className="mt-8 glass rounded-2xl p-6">
-          <h3 className="text-white font-semibold mb-4 flex items-center">
-            <User className="w-5 h-5 mr-2 text-cyan-400" />
-            Demo Accounts
-          </h3>
-          <div className="space-y-3">
-            <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-              <p className="text-gray-200 font-medium">Admin Employee</p>
-              <p className="text-gray-400 text-sm">EMP001 / Admin123!</p>
-            </div>
-            <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-              <p className="text-gray-200 font-medium">Bank Manager</p>
-              <p className="text-gray-400 text-sm">EMP002 / Manager123!</p>
-            </div>
-          </div>
         </div>
 
         {/* Security Notice */}

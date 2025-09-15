@@ -30,6 +30,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:e2e": "npx playwright test",
     "eject": "react-scripts eject",
     "server": "node src/server.js",
     "server:dev": "nodemon src/server.js"
@@ -54,6 +55,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
+    "nodemon": "^3.1.10",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17"
   },

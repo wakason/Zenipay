@@ -3,7 +3,7 @@ import apiService from '../services/api';
 import { Transaction } from '../types';
 import { formatCurrency, formatDate, getStatusColor, getStatusText } from '../utils/validation';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { ArrowLeft, Filter, Search } from 'lucide-react';
+import { ArrowLeft, Search, Calendar } from 'lucide-react';
 
 const TransactionHistory: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -13,14 +13,18 @@ const TransactionHistory: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    loadTransactions();
-  }, [currentPage, statusFilter]);
-
-  const loadTransactions = async () => {
+  const loadTransactions = React.useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await apiService.getMyTransactions(currentPage, 10, statusFilter);
+      console.log('Transaction History Response:', response);
+      console.log('All Transactions:', response.transactions);
+      console.log('First Transaction:', response.transactions[0]);
+      console.log('Transaction Dates:', response.transactions.map(t => ({
+        id: t.id,
+        createdAt: t.createdAt,
+        formattedDate: formatDate(t.createdAt)
+      })));
       setTransactions(response.transactions);
       setTotalPages(response.pagination.pages);
     } catch (error) {
@@ -28,12 +32,16 @@ const TransactionHistory: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentPage, statusFilter]);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [currentPage, statusFilter, loadTransactions]);
 
   const filteredTransactions = transactions.filter(transaction =>
-    transaction.payeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    transaction.payeeAccount.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    transaction.swiftCode.toLowerCase().includes(searchTerm.toLowerCase())
+    (transaction.payeeName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (transaction.payeeAccount?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (transaction.swiftCode?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -159,8 +167,11 @@ const TransactionHistory: React.FC = () => {
                         {getStatusText(transaction.status)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(transaction.createdAt)}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm text-gray-700">{formatDate(transaction.createdAt)}</span>
+                      </div>
                     </td>
                   </tr>
                 ))}

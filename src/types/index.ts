@@ -4,6 +4,8 @@ export interface User {
   fullName: string;
   accountNumber: string;
   role: 'customer' | 'employee';
+  email?: string; // Added email property
+  bic?: string; // Added optional BIC property
   createdAt?: string;
 }
 
