@@ -83,27 +83,67 @@ const startServer = async () => {
     // Create default employee accounts
     await createDefaultEmployees();
     
-    // Start server
-    if (NODE_ENV === 'production' && process.env.SSL_CERT_PATH && process.env.SSL_KEY_PATH) {
-      // HTTPS server for production
+    // Start server with SSL/TLS support
+    const sslCertPath = process.env.SSL_CERT_PATH || (NODE_ENV === 'development' ? './certs/server.crt' : null);
+    const sslKeyPath = process.env.SSL_KEY_PATH || (NODE_ENV === 'development' ? './certs/server.key' : null);
+    
+    // Check if SSL certificates exist
+    const sslCertExists = sslCertPath && fs.existsSync(sslCertPath);
+    const sslKeyExists = sslKeyPath && fs.existsSync(sslKeyPath);
+    
+    if (sslCertExists && sslKeyExists) {
+      // HTTPS server with SSL/TLS
       const sslOptions = {
-        key: fs.readFileSync(process.env.SSL_KEY_PATH),
-        cert: fs.readFileSync(process.env.SSL_CERT_PATH)
+        key: fs.readFileSync(sslKeyPath),
+        cert: fs.readFileSync(sslCertPath),
+        // Additional SSL/TLS security options
+        secureProtocol: 'TLSv1_2_method', // Use TLS 1.2 or higher
+        ciphers: [
+          'ECDHE-RSA-AES128-GCM-SHA256',
+          'ECDHE-ECDSA-AES128-GCM-SHA256',
+          'ECDHE-RSA-AES256-GCM-SHA384',
+          'ECDHE-ECDSA-AES256-GCM-SHA384',
+          '!aNULL',
+          '!eNULL',
+          '!EXPORT',
+          '!DES',
+          '!RC4',
+          '!MD5',
+          '!PSK',
+          '!SRP',
+          '!CAMELLIA'
+        ].join(':'),
+        honorCipherOrder: true
       };
       
       https.createServer(sslOptions, app).listen(PORT, () => {
         console.log(`🔒 HTTPS Server running on port ${PORT}`);
         console.log(`🌐 Environment: ${NODE_ENV}`);
         console.log(`📊 Health check: https://localhost:${PORT}/health`);
+        console.log(`🔑 Auth endpoints: https://localhost:${PORT}/api/auth`);
+        console.log(`💳 Payment endpoints: https://localhost:${PORT}/api/payments`);
+        console.log(`🔐 SSL/TLS enabled with secure cipher suites`);
+        if (NODE_ENV === 'development') {
+          console.log(`⚠️  Using self-signed certificate - browser will show security warning`);
+        }
       });
     } else {
-      // HTTP server for development
+      // HTTP server for development (fallback)
+      if (NODE_ENV === 'production') {
+        console.warn('⚠️  WARNING: Running in production without SSL certificates!');
+        console.warn('   Set SSL_CERT_PATH and SSL_KEY_PATH environment variables.');
+        console.warn('   All traffic should be served over HTTPS in production.');
+      }
+      
       app.listen(PORT, () => {
         console.log(`🌐 HTTP Server running on port ${PORT}`);
         console.log(`🌐 Environment: ${NODE_ENV}`);
         console.log(`📊 Health check: http://localhost:${PORT}/health`);
         console.log(`🔑 Auth endpoints: http://localhost:${PORT}/api/auth`);
         console.log(`💳 Payment endpoints: http://localhost:${PORT}/api/payments`);
+        if (NODE_ENV === 'development') {
+          console.log(`💡 To enable HTTPS, run: node scripts/generate-ssl-certs.js`);
+        }
       });
     }
     

@@ -3,7 +3,7 @@ import pool from '../config/db.js';
 import { validatePaymentInput } from '../utils/auth.js';
 import { authenticateToken, requireCustomer, requireEmployee, auditLog } from '../middleware/auth.js';
 import { paymentRateLimit } from '../middleware/security.js';
-import { verifyBeneficiaryAccount, validateDataProvider } from '../services/swiftPreValidationService.js'; // Import the new service
+ // Import the new service
 
 const router = express.Router();
 
@@ -34,11 +34,16 @@ router.post('/create', requireCustomer, paymentRateLimit, async (req, res) => {
       });
     }
     
-    // Create transaction
+    // Generate UUID for transaction id (database uses VARCHAR(36) UUID)
+    const crypto = await import('crypto');
+    const transactionId = crypto.randomUUID();
+    
+    // Create transaction - using camelCase column names to match database schema
     const [result] = await pool.execute(
-      `INSERT INTO transactions (customer_id, amount, currency, payee_account, swift_code, payee_name, status) 
-       VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+      `INSERT INTO transactions (id, userId, amount, currency, recipientAccount, swiftCode, recipientName, status, type) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 'swift')`,
       [
+        transactionId,
         req.user.id,
         parsedAmount,
         currency.toUpperCase(),
@@ -51,7 +56,7 @@ router.post('/create', requireCustomer, paymentRateLimit, async (req, res) => {
     res.status(201).json({
       message: 'Payment created successfully',
       transaction: {
-        id: result.insertId,
+        id: transactionId,
         amount: parsedAmount,
         currency: currency.toUpperCase(),
         payeeAccount: payeeAccount.toUpperCase(),
@@ -81,14 +86,14 @@ router.get('/my-transactions', requireCustomer, async (req, res) => {
         id,
         amount,
         currency,
-        payee_account AS payeeAccount,
-        swift_code AS swiftCode,
-        payee_name AS payeeName,
+        recipientAccount AS payeeAccount,
+        swiftCode AS swiftCode,
+        recipientName AS payeeName,
         status,
-        DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
-        DATE_FORMAT(updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt
+        DATE_FORMAT(createdAt, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
+        DATE_FORMAT(updatedAt, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt
       FROM transactions 
-      WHERE customer_id = ?
+      WHERE userId = ?
     `;
     let params = [req.user.id];
     
@@ -97,13 +102,13 @@ router.get('/my-transactions', requireCustomer, async (req, res) => {
       params.push(status);
     }
     
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    query += ' ORDER BY createdAt DESC LIMIT ? OFFSET ?';
     params.push(parseInt(limit), offset);
     
     const [transactions] = await pool.execute(query, params);
     
-    // Get total count
-    let countQuery = 'SELECT COUNT(*) as total FROM transactions WHERE customer_id = ?';
+    // Get total count - using camelCase column name
+    let countQuery = 'SELECT COUNT(*) as total FROM transactions WHERE userId = ?';
     let countParams = [req.user.id];
     
     if (status) {
@@ -135,26 +140,40 @@ router.get('/my-transactions', requireCustomer, async (req, res) => {
 // Get all pending transactions (Employee only)
 router.get('/pending', requireEmployee, async (req, res) => {
   try {
+    // Validate query parameters with RegEx patterns
     const { page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Validate page and limit are positive integers
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    
+    if (isNaN(pageNum) || pageNum < 1 || !/^\d+$/.test(String(page))) {
+      return res.status(400).json({ error: 'Page must be a positive integer' });
+    }
+    
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100 || !/^\d+$/.test(String(limit))) {
+      return res.status(400).json({ error: 'Limit must be a positive integer between 1 and 100' });
+    }
+    
+    const offset = (pageNum - 1) * limitNum;
     
     const [transactions] = await pool.execute(`
       SELECT 
         t.id,
         t.amount,
         t.currency,
-        t.payee_account AS payeeAccount,
-        t.swift_code AS swiftCode,
-        t.payee_name AS payeeName,
+        t.recipientAccount AS payeeAccount,
+        t.swiftCode AS swiftCode,
+        t.recipientName AS payeeName,
         t.status,
-        DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
-        DATE_FORMAT(t.updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt,
-        u.full_name AS customerName,
-        u.account_number AS customerAccount
+        DATE_FORMAT(t.createdAt, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
+        DATE_FORMAT(t.updatedAt, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt,
+        u.fullName AS customerName,
+        u.accountNumber AS customerAccount
       FROM transactions t
-      JOIN users u ON t.customer_id = u.id
+      JOIN users u ON t.userId = u.id
       WHERE t.status = 'pending'
-      ORDER BY t.created_at ASC
+      ORDER BY t.createdAt ASC
       LIMIT ? OFFSET ?
     `, [parseInt(limit), offset]);
     
@@ -186,6 +205,11 @@ router.get('/pending', requireEmployee, async (req, res) => {
 router.put('/verify/:transactionId', requireEmployee, async (req, res) => {
   try {
     const { transactionId } = req.params;
+    
+    // Validate transactionId format (UUID)
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(transactionId)) {
+      return res.status(400).json({ error: 'Invalid transaction ID format' });
+    }
     const { verified, notes } = req.body;
     
     if (typeof verified !== 'boolean') {
@@ -206,13 +230,11 @@ router.put('/verify/:transactionId', requireEmployee, async (req, res) => {
       });
     }
     
-    const transaction = transactions[0];
-    
-    // Update transaction status
-    const newStatus = verified ? 'verified' : 'rejected';
+    // Update transaction status - database enum is ('pending','completed','failed')
+    const newStatus = verified ? 'completed' : 'failed';
     await pool.execute(
-      'UPDATE transactions SET status = ?, employee_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [newStatus, notes || null, transactionId]
+      'UPDATE transactions SET status = ?, updatedAt = CURRENT_TIMESTAMP(6) WHERE id = ?',
+      [newStatus, transactionId]
     );
     
     res.json({
@@ -237,15 +259,20 @@ router.post('/submit-to-swift/:transactionId', requireEmployee, async (req, res)
   try {
     const { transactionId } = req.params;
     
-    // Check if transaction exists and is verified
+    // Validate transactionId format (UUID)
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(transactionId)) {
+      return res.status(400).json({ error: 'Invalid transaction ID format' });
+    }
+    
+    // Check if transaction exists and is pending (can only submit pending transactions)
     const [transactions] = await pool.execute(
-      'SELECT * FROM transactions WHERE id = ? AND status = "verified"',
+      'SELECT * FROM transactions WHERE id = ? AND status = "pending"',
       [transactionId]
     );
     
     if (transactions.length === 0) {
       return res.status(404).json({ 
-        error: 'Transaction not found or not verified' 
+        error: 'Transaction not found or already processed' 
       });
     }
     
@@ -255,25 +282,30 @@ router.post('/submit-to-swift/:transactionId', requireEmployee, async (req, res)
     // In a real system, this would make an API call to SWIFT
     const swiftSubmissionId = `SWIFT-${Date.now()}-${transactionId}`;
     
+    // Generate UUID for audit log
+    const crypto = await import('crypto');
+    
     // Update transaction status
     await pool.execute(
-      'UPDATE transactions SET status = "completed", updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      'UPDATE transactions SET status = "completed", updatedAt = CURRENT_TIMESTAMP(6) WHERE id = ?',
       [transactionId]
     );
     
-    // Log SWIFT submission
+    // Log SWIFT submission - using camelCase column names
     await pool.execute(
-      'INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
+      'INSERT INTO audit_logs (id, actorUserId, action, transactionId, details) VALUES (?, ?, ?, ?, ?)',
       [
+        crypto.randomUUID(),
         req.user.id,
         'SWIFT_SUBMISSION',
+        transactionId,
         JSON.stringify({
           transactionId,
           swiftSubmissionId,
           amount: transaction.amount,
           currency: transaction.currency,
-          payeeAccount: transaction.payee_account,
-          swiftCode: transaction.swift_code
+          payeeAccount: transaction.recipientAccount,
+          swiftCode: transaction.swiftCode
         })
       ]
     );
@@ -335,28 +367,33 @@ router.get('/:transactionId', async (req, res) => {
   try {
     const { transactionId } = req.params;
     
+    // Validate transactionId format (UUID)
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(transactionId)) {
+      return res.status(400).json({ error: 'Invalid transaction ID format' });
+    }
+    
     let query = `
       SELECT 
         t.id,
         t.amount,
         t.currency,
-        t.payee_account AS payeeAccount,
-        t.swift_code AS swiftCode,
-        t.payee_name AS payeeName,
+        t.recipientAccount AS payeeAccount,
+        t.swiftCode AS swiftCode,
+        t.recipientName AS payeeName,
         t.status,
-        DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
-        DATE_FORMAT(t.updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt,
-        u.full_name AS customerName,
-        u.account_number AS customerAccount
+        DATE_FORMAT(t.createdAt, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
+        DATE_FORMAT(t.updatedAt, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt,
+        u.fullName AS customerName,
+        u.accountNumber AS customerAccount
       FROM transactions t
-      JOIN users u ON t.customer_id = u.id
+      JOIN users u ON t.userId = u.id
       WHERE t.id = ?
     `;
     let params = [transactionId];
     
     // If customer, only show their own transactions
     if (req.user.role === 'customer') {
-      query += ' AND t.customer_id = ?';
+      query += ' AND t.userId = ?';
       params.push(req.user.id);
     }
     
@@ -383,21 +420,45 @@ router.get('/:transactionId', async (req, res) => {
 // Get all transactions (Employee only)
 router.get('/', requireEmployee, async (req, res) => {
   try {
+    // Validate query parameters with RegEx patterns
     const { page = 1, limit = 10, status, customerId } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Validate page and limit are positive integers
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    
+    if (isNaN(pageNum) || pageNum < 1 || !/^\d+$/.test(String(page))) {
+      return res.status(400).json({ error: 'Page must be a positive integer' });
+    }
+    
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100 || !/^\d+$/.test(String(limit))) {
+      return res.status(400).json({ error: 'Limit must be a positive integer between 1 and 100' });
+    }
+    
+    // Validate status if provided (whitelist approach)
+    if (status && !/^(pending|completed|failed)$/i.test(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be pending, completed, or failed' });
+    }
+    
+    // Validate customerId if provided (UUID format)
+    if (customerId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId)) {
+      return res.status(400).json({ error: 'Invalid customer ID format' });
+    }
+    
+    const offset = (pageNum - 1) * limitNum;
     
     let query = `
       SELECT t.id, t.amount, t.currency,
-             t.payee_account AS payeeAccount,
-             t.swift_code AS swiftCode,
-             t.payee_name AS payeeName,
+             t.recipientAccount AS payeeAccount,
+             t.swiftCode AS swiftCode,
+             t.recipientName AS payeeName,
              t.status,
-             DATE_FORMAT(t.created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
-             DATE_FORMAT(t.updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt,
-             u.full_name AS customerName, 
-             u.account_number AS customerAccount
+             DATE_FORMAT(t.createdAt, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
+             DATE_FORMAT(t.updatedAt, '%Y-%m-%dT%H:%i:%s.000Z') AS updatedAt,
+             u.fullName AS customerName, 
+             u.accountNumber AS customerAccount
       FROM transactions t
-      JOIN users u ON t.customer_id = u.id
+      JOIN users u ON t.userId = u.id
       WHERE 1=1
     `;
     let params = [];
@@ -408,11 +469,11 @@ router.get('/', requireEmployee, async (req, res) => {
     }
     
     if (customerId) {
-      query += ' AND t.customer_id = ?';
+      query += ' AND t.userId = ?';
       params.push(customerId);
     }
     
-    query += ' ORDER BY t.created_at DESC LIMIT ? OFFSET ?';
+    query += ' ORDER BY t.createdAt DESC LIMIT ? OFFSET ?';
     params.push(parseInt(limit), offset);
     
     const [transactions] = await pool.execute(query, params);
@@ -421,7 +482,7 @@ router.get('/', requireEmployee, async (req, res) => {
     let countQuery = `
       SELECT COUNT(*) as total 
       FROM transactions t
-      JOIN users u ON t.customer_id = u.id
+      JOIN users u ON t.userId = u.id
       WHERE 1=1
     `;
     let countParams = [];
@@ -432,7 +493,7 @@ router.get('/', requireEmployee, async (req, res) => {
     }
     
     if (customerId) {
-      countQuery += ' AND t.customer_id = ?';
+      countQuery += ' AND t.userId = ?';
       countParams.push(customerId);
     }
     

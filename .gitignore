@@ -1,1 +1,12 @@
 node_modules
+certs/
+*.key
+*.crt
+*.pem
+.env
+.env.local
+.env.production
+*.log
+hs_err_pid*.log
+package.json.bak
+build/

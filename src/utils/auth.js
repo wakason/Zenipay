@@ -1,10 +1,22 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
+// Resolve JWT secret automatically if not provided
+let resolvedJwtSecret = (process.env.JWT_SECRET && process.env.JWT_SECRET.trim()) ? process.env.JWT_SECRET : '';
+if (!resolvedJwtSecret) {
+  // Generate an ephemeral secret for development to avoid startup failures
+  resolvedJwtSecret = crypto.randomBytes(48).toString('hex');
+  process.env.JWT_SECRET = resolvedJwtSecret;
+  if ((process.env.NODE_ENV || 'development') !== 'production') {
+    console.warn('JWT_SECRET not set. Generated an ephemeral secret for development. Tokens will invalidate on restart.');
+  }
+}
+
+const JWT_SECRET = resolvedJwtSecret;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1h';
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
 
