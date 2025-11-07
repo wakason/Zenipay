@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import apiService from '../services/api';
 import { Transaction } from '../types';
 import { formatCurrency, formatDate, getStatusColor, getStatusText } from '../utils/validation';
@@ -14,11 +14,7 @@ const EmployeeTransactions: React.FC = () => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
-    loadTransactions();
-  }, [currentPage, statusFilter]);
-
-  const loadTransactions = async () => {
+  const loadTransactions = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await apiService.getAllTransactions(currentPage, 10, statusFilter);
@@ -29,7 +25,11 @@ const EmployeeTransactions: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentPage, statusFilter]);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [currentPage, statusFilter, loadTransactions]);
 
   const handleVerifyTransaction = async (transactionId: number, verified: boolean) => {
     try {
@@ -37,10 +37,11 @@ const EmployeeTransactions: React.FC = () => {
         verified, 
         notes: verified ? 'Transaction verified by employee' : 'Transaction rejected by employee' 
       });
-      loadTransactions(); // Refresh data
+      await loadTransactions(); // Refresh data
       setShowModal(false);
     } catch (error) {
       console.error('Failed to verify transaction:', error);
+      alert('Failed to verify transaction. Please try again.');
     }
   };
 

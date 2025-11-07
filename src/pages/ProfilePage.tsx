@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
 import { validatePassword } from '../utils/validation';
@@ -63,6 +63,7 @@ const ProfilePage: React.FC = () => {
     setIsLoading(true);
     try {
       await apiService.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      await refreshUser(); // Refresh user data after password change
       setSuccessMessage('Password changed successfully!');
       setPasswordForm({
         currentPassword: '',
@@ -155,7 +156,7 @@ const ProfilePage: React.FC = () => {
                 onChange={handlePasswordChange}
                 className={`block w-full px-3 py-2 pr-10 border ${
                   errors.currentPassword ? 'border-red-300' : 'border-gray-300'
-                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 bg-white`}
                 placeholder="Enter current password"
               />
               <button
@@ -189,7 +190,7 @@ const ProfilePage: React.FC = () => {
                 onChange={handlePasswordChange}
                 className={`block w-full px-3 py-2 pr-10 border ${
                   errors.newPassword ? 'border-red-300' : 'border-gray-300'
-                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 bg-white`}
                 placeholder="Enter new password"
               />
               <button

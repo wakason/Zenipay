@@ -1,0 +1,301 @@
+{
+  "info": {
+    "name": "ZeniPay API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"fullName\": \"John Doe\",\n    \"idNumber\": \"ABC123456\",\n    \"accountNumber\": \"1234567890\",\n    \"password\": \"SecurePassword123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"accountNumber\": \"1234567890\",\n    \"password\": \"SecurePassword123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Current User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "change-password"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"currentPassword\": \"OldPassword123!\",\n    \"newPassword\": \"NewPassword123!\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Payment (Customer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "create"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 1000,\n    \"currency\": \"USD\",\n    \"payeeAccount\": \"GB123456789\",\n    \"swiftCode\": \"ABCDGB12\",\n    \"payeeName\": \"Jane Smith\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Transactions (Customer)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/my-transactions?page=1&limit=10&status=pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "my-transactions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Transactions (Employee)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/pending?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "pending"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify Transaction (Employee)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/verify/:transactionId",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "verify", ":transactionId"],
+              "variable": [
+                {
+                  "key": "transactionId",
+                  "value": "123",
+                  "description": "ID of the transaction to verify"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"approved\": true,\n    \"notes\": \"Transaction approved\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+              "raw": "{\n    \"partyAgentDetails\": {},\n    \"subjectDn\": \"your-subject-dn\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Transaction Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments/:transactionId",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", ":transactionId"],
+              "variable": [
+                {
+                  "key": "transactionId",
+                  "value": "123",
+                  "description": "ID of the transaction to retrieve"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Transactions (Employee)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payments?page=1&limit=10&status=pending&customerId=123",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "pending"
+                },
+                {
+                  "key": "customerId",
+                  "value": "123"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

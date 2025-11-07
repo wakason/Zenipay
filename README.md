@@ -7,7 +7,7 @@
 ![React](https://img.shields.io/badge/React-18.x-blue)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![CircleCI](https://img.shields.io/badge/CircleCI-Configured-success)
+![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Configured-success)
 
 **A secure, production-ready international payment portal with comprehensive security features, employee verification workflows, and SWIFT integration.**
 
@@ -79,7 +79,7 @@ ZeniPay is a secure international payment portal designed for banks and financia
 - Comprehensive audit logging
 - Employee registration prevention (pre-registered only)
 - Automated test suite
-- CircleCI integration with SonarQube
+- GitHub Actions CI/CD with SonarQube
 - Windows setup documentation
 
 ---
@@ -102,7 +102,7 @@ ZeniPay is a secure international payment portal designed for banks and financia
 - **HTTP Client**: Axios
 
 ### DevOps
-- **CI/CD**: CircleCI
+- **CI/CD**: GitHub Actions
 - **Code Quality**: SonarQube
 - **Version Control**: Git/GitHub
 
@@ -402,8 +402,9 @@ See [SECURITY.md](./SECURITY.md) for comprehensive security documentation.
 
 ```
 zenipay/
-├── .circleci/              # CI/CD configuration
-│   └── config.yml          # CircleCI pipeline
+├── .github/                # GitHub configuration
+│   └── workflows/          # GitHub Actions workflows
+│       └── ci.yml          # CI/CD pipeline
 ├── src/
 │   ├── config/             # Database configuration
 │   │   └── db.js           # Connection pool & initialization
@@ -482,14 +483,21 @@ curl -X POST http://localhost:5000/api/auth/login \
 
 ## 🔄 CI/CD Pipeline
 
-### CircleCI Integration
+### GitHub Actions Integration
 
-The project includes CircleCI configuration for automated builds and code quality analysis.
+The project includes GitHub Actions workflows for automated builds, testing, and code quality analysis.
+
+**Features:**
+- ✅ Automated builds on push and pull requests
+- ✅ Dependency installation and caching
+- ✅ Application build verification
+- ✅ Linting and testing
+- ✅ SonarQube code quality analysis
 
 **Setup:**
-1. Connect repository to CircleCI
-2. Configure SonarCloud token
-3. Push code to trigger pipeline
+1. Configure SonarCloud token in GitHub Secrets
+2. Push code to trigger pipeline automatically
+3. View workflow runs in the Actions tab
 
 See [CICD-SETUP.md](./CICD-SETUP.md) for detailed setup instructions.
 
@@ -499,6 +507,7 @@ See [CICD-SETUP.md](./CICD-SETUP.md) for detailed setup instructions.
 - Security hotspot detection
 - Code smell identification
 - Coverage reporting
+- Automatic analysis on pull requests and main branch
 
 ---
 

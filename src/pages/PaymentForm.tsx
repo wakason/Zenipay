@@ -121,8 +121,8 @@ const PaymentForm: React.FC = () => {
                 Amount
               </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <DollarSign className="h-5 w-5 text-gray-400" />
+                    <div className="input-icon-container">
+                      <DollarSign className="h-4 w-4 text-cyan-400" />
                     </div>
               <input
                       type="number"
@@ -134,7 +134,7 @@ const PaymentForm: React.FC = () => {
                 required
                 value={formData.amount}
                 onChange={handleInputChange}
-                      className={`modern-input pl-12 ${
+                      className={`modern-input input-with-icon ${
                         errors.amount ? 'border-red-400 focus:ring-red-400' : ''
                       }`}
                 placeholder="0.00"
@@ -190,8 +190,8 @@ const PaymentForm: React.FC = () => {
               Payee Name
             </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
+                    <div className="input-icon-container">
+                      <User className="h-4 w-4 text-cyan-400" />
                     </div>
             <input
                       type="text"
@@ -200,7 +200,7 @@ const PaymentForm: React.FC = () => {
               required
               value={formData.payeeName}
               onChange={handleInputChange}
-                      className={`modern-input pl-12 ${
+                      className={`modern-input input-with-icon ${
                         errors.payeeName ? 'border-red-400 focus:ring-red-400' : ''
                       }`}
               placeholder="Enter payee's full name"
@@ -219,8 +219,8 @@ const PaymentForm: React.FC = () => {
               Payee Account Number
             </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <CreditCard className="h-5 w-5 text-gray-400" />
+                    <div className="input-icon-container">
+                      <CreditCard className="h-4 w-4 text-cyan-400" />
                     </div>
             <input
                       type="text"
@@ -229,7 +229,7 @@ const PaymentForm: React.FC = () => {
               required
               value={formData.payeeAccount}
               onChange={handleInputChange}
-                      className={`modern-input pl-12 ${
+                      className={`modern-input input-with-icon ${
                         errors.payeeAccount ? 'border-red-400 focus:ring-red-400' : ''
                       }`}
               placeholder="Enter payee's account number"
@@ -259,8 +259,8 @@ const PaymentForm: React.FC = () => {
               </button>
                   </div>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Globe className="h-5 w-5 text-gray-400" />
+                    <div className="input-icon-container">
+                      <Globe className="h-4 w-4 text-cyan-400" />
             </div>
             <input
                       type="text"
@@ -269,7 +269,7 @@ const PaymentForm: React.FC = () => {
               required
               value={formData.swiftCode}
               onChange={handleInputChange}
-                      className={`modern-input pl-12 uppercase ${
+                      className={`modern-input input-with-icon uppercase ${
                         errors.swiftCode ? 'border-red-400 focus:ring-red-400' : ''
                       }`}
               placeholder="Enter SWIFT code (e.g., SBZAZAJJ)"

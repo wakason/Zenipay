@@ -82,15 +82,15 @@ const LoginPage: React.FC = () => {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl mb-6 border border-cyan-500/30 shadow-lg shadow-cyan-500/20">
             <Shield className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">SecureBank</h1>
-          <p className="text-gray-300 text-lg">International Payment Portal</p>
+          <h1 className="text-4xl font-bold text-white mb-2">ZeniPay</h1>
+          <p className="text-gray-300 text-lg">Global Payment Platform</p>
         </div>
 
         {/* Login Form */}
         <div className="glass rounded-3xl p-8 shadow-2xl">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-semibold text-white mb-2">Welcome Back</h2>
-            <p className="text-gray-300">Sign in to your secure banking portal</p>
+            <p className="text-gray-300">Sign in to your payment portal</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -100,8 +100,8 @@ const LoginPage: React.FC = () => {
                 Account Number
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Building2 className="h-5 w-5 text-cyan-400" />
+                <div className="input-icon-container">
+                  <Building2 className="h-4 w-4 text-cyan-400" />
                 </div>
                 <input
                   id="accountNumber"
@@ -110,7 +110,7 @@ const LoginPage: React.FC = () => {
                   required
                   value={formData.accountNumber}
                   onChange={handleInputChange}
-                  className={`modern-input pl-12 ${
+                  className={`modern-input input-with-icon ${
                     errors.accountNumber ? 'border-red-500 focus:ring-red-500' : ''
                   }`}
                   placeholder="Enter your account number"
@@ -127,8 +127,8 @@ const LoginPage: React.FC = () => {
                 Password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-cyan-400" />
+                <div className="input-icon-container">
+                  <Lock className="h-4 w-4 text-cyan-400" />
                 </div>
                 <input
                   id="password"
@@ -137,7 +137,7 @@ const LoginPage: React.FC = () => {
                   required
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`modern-input pl-12 pr-12 ${
+                  className={`modern-input input-with-icon with-right-icon ${
                     errors.password ? 'border-red-500 focus:ring-red-500' : ''
                   }`}
                   placeholder="Enter your password"
@@ -145,17 +145,16 @@ const LoginPage: React.FC = () => {
                   autoCorrect="off"
                   style={{ textTransform: 'none' }}
                 />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                <div
+                  className="input-icon-container right"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-cyan-400 transition-colors" />
+                    <EyeOff className="h-4 w-4 text-gray-400 hover:text-cyan-400 transition-colors" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-cyan-400 transition-colors" />
+                    <Eye className="h-4 w-4 text-gray-400 hover:text-cyan-400 transition-colors" />
                   )}
-                </button>
+                </div>
               </div>
               {errors.password && (
                 <p className="mt-2 text-sm text-red-400">{errors.password}</p>

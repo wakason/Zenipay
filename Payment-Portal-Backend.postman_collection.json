@@ -1,0 +1,172 @@
+{
+  "info": {
+    "_postman_id": "2d7f9d7b-5d7a-4c8a-a8b5-b9f8a6c2a001",
+    "name": "Payment Portal - Backend API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for ZeniPay/Payment Portal backend API (auth + payments)."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "authToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+      }
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register (Customer)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"John Doe\",\n  \"idNumber\": \"1234567890123\",\n  \"accountNumber\": \"CUST001\",\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api","auth","register"] }
+          }
+        },
+        {
+          "name": "Login (Customer/Employee)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.token) {",
+                  "  pm.collectionVariables.set('authToken', res.token);",
+                  "  pm.test('Saved auth token', function () { pm.expect(pm.collectionVariables.get('authToken')).to.be.a('string'); });",
+                  "} else {",
+                  "  pm.test('Response has token', function () { pm.expect(false).to.be.true; });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountNumber\": \"EMP001\",\n  \"password\": \"Admin123!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] }
+          }
+        },
+        {
+          "name": "Profile (Me)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/auth/profile", "host": ["{{baseUrl}}"], "path": ["api","auth","profile"] }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Admin123!\",\n  \"newPassword\": \"Admin1234!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/change-password", "host": ["{{baseUrl}}"], "path": ["api","auth","change-password"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api","auth","logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Payment (Customer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": \"1000\",\n  \"currency\": \"USD\",\n  \"payeeAccount\": \"PAYEE123\",\n  \"swiftCode\": \"SBZAZAJJ\",\n  \"payeeName\": \"Jane Smith\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/payments/create", "host": ["{{baseUrl}}"], "path": ["api","payments","create"] }
+          }
+        },
+        {
+          "name": "My Transactions (Customer)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/payments/my-transactions?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["api","payments","my-transactions"], "query": [ {"key":"page","value":"1"},{"key":"limit","value":"10"} ] }
+          }
+        },
+        {
+          "name": "Get All (Employee)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/payments?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["api","payments"], "query": [ {"key":"page","value":"1"},{"key":"limit","value":"10"} ] }
+          }
+        },
+        {
+          "name": "Pending (Employee)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/payments/pending?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["api","payments","pending"], "query": [ {"key":"page","value":"1"},{"key":"limit","value":"10"} ] }
+          }
+        },
+        {
+          "name": "Verify Transaction (Employee)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"verified\",\n  \"employeeNotes\": \"Looks good\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/payments/verify/1", "host": ["{{baseUrl}}"], "path": ["api","payments","verify","1"] }
+          }
+        },
+        {
+          "name": "Submit to SWIFT (Employee)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/payments/submit-to-swift/1", "host": ["{{baseUrl}}"], "path": ["api","payments","submit-to-swift","1"] }
+          }
+        },
+        {
+          "name": "Get Transaction by ID",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/payments/1", "host": ["{{baseUrl}}"], "path": ["api","payments","1"] }
+          }
+        }
+      ]
+    }
+  ]
+}
+

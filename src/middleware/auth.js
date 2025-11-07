@@ -16,9 +16,9 @@ export const authenticateToken = async (req, res, next) => {
     
     const decoded = verifyToken(token);
     
-    // Verify user still exists and is active
+    // Verify user still exists and is verified - using camelCase column names
     const [users] = await pool.execute(
-      'SELECT id, role, account_number, is_active FROM users WHERE id = ?',
+      'SELECT id, role, accountNumber, isVerified FROM users WHERE id = ?',
       [decoded.id]
     );
     
@@ -31,10 +31,10 @@ export const authenticateToken = async (req, res, next) => {
     
     const user = users[0];
     
-    if (!user.is_active) {
+    if (!user.isVerified) {
       return res.status(401).json({ 
-        error: 'Account is deactivated.',
-        code: 'ACCOUNT_DEACTIVATED'
+        error: 'Account is not verified.',
+        code: 'ACCOUNT_NOT_VERIFIED'
       });
     }
     
@@ -42,7 +42,7 @@ export const authenticateToken = async (req, res, next) => {
     req.user = {
       id: user.id,
       role: user.role,
-      accountNumber: user.account_number
+      accountNumber: user.accountNumber
     };
     
     next();
@@ -100,15 +100,15 @@ export const optionalAuth = async (req, res, next) => {
       const decoded = verifyToken(token);
       
       const [users] = await pool.execute(
-        'SELECT id, role, account_number, is_active FROM users WHERE id = ?',
+        'SELECT id, role, accountNumber, isVerified FROM users WHERE id = ?',
         [decoded.id]
       );
       
-      if (users.length > 0 && users[0].is_active) {
+      if (users.length > 0 && users[0].isVerified) {
         req.user = {
           id: users[0].id,
           role: users[0].role,
-          accountNumber: users[0].account_number
+          accountNumber: users[0].accountNumber
         };
       }
     }
@@ -138,14 +138,23 @@ export const auditLog = async (req, res, next) => {
             ip: req.ip || req.connection.remoteAddress
           };
           
+          // Generate UUID for audit log id
+          const crypto = await import('crypto');
+          const auditLogId = crypto.randomUUID();
+          
+          // Extract transactionId from URL if present (e.g., /payments/123)
+          const transactionIdMatch = req.originalUrl.match(/\/payments\/([^\/]+)/);
+          const transactionId = transactionIdMatch ? transactionIdMatch[1] : null;
+          
+          // Using camelCase column names to match database schema
           await pool.execute(
-            'INSERT INTO audit_logs (user_id, action, details, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO audit_logs (id, actorUserId, action, transactionId, details) VALUES (?, ?, ?, ?, ?)',
             [
+              auditLogId,
               req.user.id,
               action,
-              JSON.stringify(details),
-              req.ip || req.connection.remoteAddress,
-              req.get('User-Agent')
+              transactionId,
+              JSON.stringify(details)
             ]
           );
         }

@@ -73,7 +73,7 @@ const TransactionHistory: React.FC = () => {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-50 text-gray-900"
                 placeholder="Search by payee name, account, or SWIFT code"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

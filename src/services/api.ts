@@ -138,17 +138,7 @@ class ApiService {
     return response.data;
   }
 
-  // New: Pre-validate a beneficiary account with Swift API via backend
-  async preValidateAccount(accountDetails: any, subjectDn: string): Promise<any> {
-    const response = await this.api.post('/payments/pre-validate-account', { accountDetails, subjectDn });
-    return response.data;
-  }
-
-  // New: Validate a data provider with Swift API via backend
-  async validateDataProvider(partyAgentDetails: any, subjectDn: string): Promise<any> {
-    const response = await this.api.post('/payments/validate-data-provider', { partyAgentDetails, subjectDn });
-    return response.data;
-  }
+  // Payment validation is now handled directly in the verification step
 
   async getMyTransactions(page: number = 1, limit: number = 10, status?: string): Promise<PaginatedResponse<Transaction>> {
     const params = new URLSearchParams({

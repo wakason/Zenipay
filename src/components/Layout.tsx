@@ -80,8 +80,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <Shield className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">SecureBank</h1>
-                <p className="text-xs text-gray-300">Payment Portal</p>
+                <h1 className="text-xl font-bold text-white">ZeniPay</h1>
+                <p className="text-xs text-gray-300">Global Payments</p>
               </div>
             </div>
           </div>

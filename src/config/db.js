@@ -8,6 +8,7 @@ const dbConfig = {
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'payment_portal',
+  port: parseInt(process.env.DB_PORT || '3306'),
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -23,6 +24,29 @@ const testConnection = async () => {
     console.log('✅ Database connected successfully');
     connection.release();
   } catch (error) {
+    // Auto-create database if it doesn't exist, then retry once
+    if (error && (error.code === 'ER_BAD_DB_ERROR' || /Unknown database/i.test(error.message))) {
+      try {
+        const adminConn = await mysql.createConnection({
+          host: dbConfig.host,
+          user: dbConfig.user,
+          password: dbConfig.password,
+          port: dbConfig.port
+        });
+        const dbName = String(dbConfig.database).replace(/`/g, '');
+        const createDbSql = 'CREATE DATABASE IF NOT EXISTS `' + dbName + '`';
+        await adminConn.execute(createDbSql);
+        await adminConn.end();
+        console.log(`✅ Database "${dbConfig.database}" created/verified`);
+        const retry = await pool.getConnection();
+        console.log('✅ Database connected successfully (after create)');
+        retry.release();
+        return;
+      } catch (createErr) {
+        console.error('❌ Failed to create database:', createErr.message);
+        process.exit(1);
+      }
+    }
     console.error('❌ Database connection failed:', error.message);
     process.exit(1);
   }
@@ -84,54 +108,63 @@ const initializeDatabase = async () => {
   }
 };
 
-// Create default employee accounts
+// Create or update default employee accounts (idempotent)
 const createDefaultEmployees = async () => {
   try {
     const bcrypt = await import('bcrypt');
-    
-    // Check if employees already exist
-    const [existingEmployees] = await pool.execute(
-      "SELECT COUNT(*) as count FROM users WHERE role = 'employee'"
-    );
-    
-    if (existingEmployees[0].count > 0) {
-      console.log('✅ Employee accounts already exist');
-      return;
-    }
+    const crypto = await import('crypto');
 
-    // Create default employee accounts
     const employees = [
       {
-        full_name: 'Admin User',
-        id_number: 'EMP001',
-        account_number: 'EMP001',
+        username: 'EMP001',
+        fullName: 'Admin User',
+        idNumber: 'EMP001',
+        accountNumber: 'EMP001',
         password: 'Admin123!',
-        role: 'employee'
       },
       {
-        full_name: 'Bank Manager',
-        id_number: 'EMP002', 
-        account_number: 'EMP002',
+        username: 'EMP002',
+        fullName: 'Bank Manager',
+        idNumber: 'EMP002', 
+        accountNumber: 'EMP002',
         password: 'Manager123!',
-        role: 'employee'
       }
     ];
 
     for (const employee of employees) {
       const hashedPassword = await bcrypt.hash(employee.password, 12);
-      await pool.execute(
-        `INSERT INTO users (full_name, id_number, account_number, password_hash, role) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [employee.full_name, employee.id_number, employee.account_number, hashedPassword, employee.role]
+      
+      // Check if employee already exists
+      const [existing] = await pool.execute(
+        'SELECT id FROM users WHERE accountNumber = ? OR username = ?',
+        [employee.accountNumber, employee.username]
       );
+      
+      if (existing.length > 0) {
+        // Update existing employee
+        await pool.execute(
+          `UPDATE users 
+           SET fullName = ?, idNumber = ?, password = ?, role = 'employee', isVerified = 1
+           WHERE accountNumber = ?`,
+          [employee.fullName, employee.idNumber, hashedPassword, employee.accountNumber]
+        );
+      } else {
+        // Insert new employee - using camelCase column names and UUID
+        const userId = crypto.randomUUID();
+        await pool.execute(
+          `INSERT INTO users (id, username, fullName, accountNumber, idNumber, password, role, isVerified)
+           VALUES (?, ?, ?, ?, ?, ?, 'employee', 1)`,
+          [userId, employee.username, employee.fullName, employee.accountNumber, employee.idNumber, hashedPassword]
+        );
+      }
     }
 
-    console.log('✅ Default employee accounts created');
+    console.log('✅ Default employee accounts ensured');
     console.log('📋 Employee Login Credentials:');
-    console.log('   Admin: account_number=EMP001, password=Admin123!');
-    console.log('   Manager: account_number=EMP002, password=Manager123!');
+    console.log('   Admin: accountNumber=EMP001, password=Admin123!');
+    console.log('   Manager: accountNumber=EMP002, password=Manager123!');
   } catch (error) {
-    console.error('❌ Failed to create default employees:', error.message);
+    console.error('❌ Failed to ensure default employees:', error.message);
   }
 };
 
